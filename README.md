@@ -1,117 +1,39 @@
 # freebsdvirt-image-kit
 
-freebsdvirt-image-kit is a tool to create FreeBSD images for KVM virtualization using HashiCorp Packer as a backend.
+freebsdvirt-image-kit creates FreeBSD images for KVM virtualization using HashiCorp Packer as a backend.
 
-## Features
+It renders two build inputs from local templates and drives Packer over them:
 
-* Generates a random SSH password if not provided
-* Copies the specified SSH public key to the `http` directory
-* Generates a Packer template based on the provided parameters
-* Supports loading of external Packer template files
-* Installs Packer plugins
-* Executes Packer to build the FreeBSD image
-* Supports generation of individual components (installer config, Packer template) or both without building the image
+- `installerconfig`, the `bsdinstall` script the guest fetches over HTTP during install
+- a Packer template that boots the FreeBSD ISO under QEMU/KVM and produces a qcow2 image
 
-## Notes
+## Model
 
-- Ensure that you have sufficient permissions to run QEMU/KVM on your system.
-- The generated image will be in qcow2 format, suitable for use with KVM.
-- Customize the installer config file according to your needs for automated FreeBSD installation.
-- The default Packer template file is `freebsd.pkr.hcl.tpl`. You can customize this template or use your own.
-- The default installer config template file is `installerconfig.tpl`. You can customize this template or use your own.
+The work is split into two commands so the rendered inputs can be inspected before a multi-minute build runs.
 
-## Installation
-
-Build the tool:
+1. `render` writes the build inputs into a `build-freebsd-<version>-<arch>` directory
+2. `build` runs `packer init` and `packer build` against the image with that `--version` and `--arch`
 
 ```
-$ go build
+freebsdvirt-image-kit render --version 14.1
+freebsdvirt-image-kit build --version 14.1
 ```
 
-## Usage
+Both commands identify the image by `--version` and `--arch`, so `build` needs nothing else. The per-version directory lets several images coexist in one working directory. Re-run `render` to change anything.
 
-1. Prepare an `installerconfig.tpl` file with your desired FreeBSD installation configurations.
+Run `freebsdvirt-image-kit render -h` for flags.
 
-2. Optionally, prepare a `freebsd.pkr.hcl.tpl` file with your desired Packer template configurations.
+## Templates
 
-3. Run the tool:
+`installerconfig.tpl` and `freebsd.pkr.hcl.tpl` are loaded from the working directory by default. Point `--installer-config` and `--packer-template` at your own copies to customize the install or the Packer source.
 
-   ```
-   $ ./freebsdvirt-image-kit --version 14.1
-   ```
+## Requirements
 
-   This will generate both the installer config file and Packer template, then build the image.
+- `packer` on `PATH` (needed by `build`, not by `render`)
+- Permission to run QEMU/KVM
+- An SSH key pair (defaults to `~/.ssh/id_rsa`)
 
-4. To generate only specific components:
-
-   - Generate only the installer config file:
-     ```
-     $ ./freebsdvirt-image-kit --gen config
-     ```
-
-   - Generate only the Packer template:
-     ```
-     $ ./freebsdvirt-image-kit --gen packer
-     ```
-
-   - Generate both installer config and Packer template without building the image:
-     ```
-     $ ./freebsdvirt-image-kit --gen all
-     ```
-
-5. Additional options:
-
-   - Specify a custom SSH username:
-     ```
-     $ ./freebsdvirt-image-kit --ssh-username myuser
-     ```
-
-   - Specify a custom SSH password (if not provided, a random password will be generated):
-     ```
-     $ ./freebsdvirt-image-kit --ssh-password mypassword
-     ```
-
-   - Specify custom disk size and memory:
-     ```
-     $ ./freebsdvirt-image-kit --disk-size 30000M --memory 4096
-     ```
-
-   - Use a custom Packer template file:
-     ```
-     $ ./freebsdvirt-image-kit --packer-template my-custom-template.pkr.hcl.tpl
-     ```
-
-   - Use a custom installer config template file:
-     ```
-     $ ./freebsdvirt-image-kit --installer-config my-custom-installerconfig.tpl
-     ```
-
-   - Specify custom SSH key paths:
-     ```
-     $ ./freebsdvirt-image-kit --ssh-public-key /path/to/public/key --ssh-private-key /path/to/private/key
-     ```
-
-## Example Output
-
-```
-$ ./freebsdvirt-image-kit --version 14.1
-Starting freebsdvirt-image-kit...
-Generated random SSH password: pBdJ4WPqcYK7zIOH
-Installing Packer plugins...
-Running Packer to build the image...
-qemu.freebsd: output will be in this color.
-
-==> qemu.freebsd: Retrieving ISO
-==> qemu.freebsd: Trying https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.1/FreeBSD-14.1-RELEASE-amd64-disc1.iso
-...
-Build 'qemu.freebsd' finished after 5 minutes 31 seconds.
-
-==> Wait completed after 5 minutes 31 seconds
-
-==> Builds finished. The artifacts of successful builds are:
---> qemu.freebsd: VM files in directory: output
-freebsdvirt-image-kit: FreeBSD image generated successfully!
-```
+If `--ssh-password` is omitted, a random password is generated and printed. It is set on the created user. SSH access to the built image uses the public key.
 
 ## License
 

@@ -10,7 +10,7 @@ packer {
 source "qemu" "freebsd" {
   iso_url           = "{{ .ISOURL }}"
   iso_checksum      = "{{ .ISOChecksum }}"
-  output_directory  = "{{ .OutputDir }}"
+  output_directory  = "image"
   shutdown_command  = "sudo shutdown -p now"
   disk_size         = "{{ .DiskSize }}"
   format            = "qcow2"
